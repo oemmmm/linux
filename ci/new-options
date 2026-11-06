@@ -1,0 +1,64 @@
+#!/bin/bash
+# Помощник при переходе на новую серию ядра (например, 7.3 → 7.4).
+#
+#   ci/new-options <дерево новой версии> [настройки прошлой версии]
+#
+# Берёт полные настройки прошлой версии (по умолчанию /proc/config.gz —
+# запускайте под обычным ядром linux-leksos), находит опции, которых там не
+# было, включает новые драйверы модулями и записывает результат в
+# arch/x86/configs/leksos_defconfig нового дерева. Потом проверяет, что все
+# виды ядра собираются со своими добавками.
+set -euo pipefail
+
+if (( $# < 1 )); then
+	echo "использование: $0 <дерево новой версии> [настройки прошлой версии]" >&2
+	exit 2
+fi
+
+here=$(cd "$(dirname "$0")/.." && pwd)
+tree=$(realpath "$1")
+old=${2:-/proc/config.gz}
+build=$(mktemp -d)
+trap 'rm -rf "$build"' EXIT
+
+k() { make -s -C "$tree" O="$build/$1" "${@:2}"; }
+
+mkdir "$build/base"
+if [[ $old == *.gz ]]; then
+	zcat "$old" > "$build/base/.config"
+else
+	cp "$old" "$build/base/.config"
+fi
+
+k base listnewconfig > "$build/new.txt"
+echo "новых опций: $(wc -l < "$build/new.txt")"
+k base olddefconfig
+
+# Новые опции, выключенные по умолчанию, — модулями. Булевы опции Kconfig
+# модулем не примет и оставит выключенными; отладку и тесты не трогаем.
+grep -E '=n$' "$build/new.txt" | cut -d= -f1 |
+	grep -v -E 'TEST|DEBUG|BENCHMARK|KUNIT|SELFTEST|SAMPLE|EXAMPLE|WERROR|TRACE' |
+	sed 's/$/=m/' > "$build/modules.txt" || true
+cat "$build/modules.txt" >> "$build/base/.config"
+k base olddefconfig 2>/dev/null
+
+echo "включены модулями:"
+while IFS='=' read -r sym _; do
+	grep -q "^$sym=m$" "$build/base/.config" && echo "  $sym"
+done < "$build/modules.txt"
+
+k base savedefconfig
+cp "$build/base/defconfig" "$tree/arch/x86/configs/leksos_defconfig"
+echo "записано: arch/x86/configs/leksos_defconfig"
+
+status=0
+for fragment in "$tree"/kernel/configs/leksos-*.config; do
+	flavor=$(basename "$fragment" .config)
+	flavor=${flavor#leksos-}
+	mkdir "$build/$flavor"
+	k "$flavor" leksos_defconfig leksos.config "leksos-$flavor.config" >/dev/null
+	printf '%s: ' "$flavor"
+	bash "$here/check-config" "$build/$flavor/.config" \
+		"$tree/kernel/configs/leksos.config" "$fragment" || status=1
+done
+exit $status

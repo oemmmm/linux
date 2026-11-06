@@ -1,0 +1,92 @@
+name: Ядра LeksOS
+
+on:
+  schedule:
+    # Каждый день в 04:23 по Москве: новые выпуски ядра и коммиты в ветках leksos/*
+    - cron: '23 1 * * *'
+  workflow_dispatch:
+    inputs:
+      mode:
+        description: 'Что сделать'
+        type: choice
+        options:
+          - проверить
+          - собрать
+          - пересобрать
+        default: проверить
+
+permissions:
+  contents: write
+
+concurrency:
+  group: kernel
+  cancel-in-progress: false
+
+jobs:
+  update:
+    name: Новые версии
+    runs-on: ubuntu-latest
+    outputs:
+      build: ${{ steps.update.outputs.build }}
+      flavors: ${{ steps.update.outputs.flavors }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: main
+      - id: update
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: ci/update "${{ inputs.mode || 'проверить' }}"
+
+  build:
+    name: ${{ matrix.flavor }}
+    needs: update
+    if: needs.update.outputs.build == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 345
+    strategy:
+      fail-fast: false
+      matrix:
+        flavor: ${{ fromJSON(needs.update.outputs.flavors) }}
+    steps:
+      - name: Освободить место на диске
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
+            /usr/local/.ghcup /opt/hostedtoolcache /usr/local/share/boost \
+            /usr/share/swift /usr/local/share/powershell
+          sudo docker image prune -af >/dev/null
+          sudo mkdir -p /mnt/build
+          sudo chmod 1777 /mnt/build
+          df -h / /mnt
+
+      - uses: actions/checkout@v5
+        with:
+          ref: main
+          path: pkg
+
+      - name: Исходники ядра
+        run: |
+          tag=$(pkg/ci/tag "${{ matrix.flavor }}")
+          echo "TAG=$tag" >> "$GITHUB_ENV"
+          git init -q kernel
+          git -C kernel fetch -q --depth 1 "https://github.com/${{ github.repository }}" "refs/tags/$tag"
+          git -C kernel checkout -q FETCH_HEAD
+          git -C kernel log --oneline -1
+
+      - name: Сборка и проверка загрузки
+        run: |
+          kvm=()
+          if [ -e /dev/kvm ]; then
+            sudo chmod 666 /dev/kvm
+            kvm=(--device /dev/kvm)
+          fi
+          docker run --rm "${kvm[@]}" \
+            -v "$PWD:/w" -v /mnt/build:/build \
+            archlinux:base-devel \
+            /w/pkg/ci/build "${{ matrix.flavor }}" /w/kernel /w/out
+
+      - name: Выложить в релиз
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+        run: pkg/ci/release "$TAG" "${{ matrix.flavor }}" out

@@ -1,0 +1,12 @@
+#!/bin/bash
+# Печатает метку, из которой собирается вид ядра: ci/tag game → v7.3.1-leksos1
+set -euo pipefail
+
+here=$(cd "$(dirname "$0")/.." && pwd)
+var() { sed -n "s/^$1=//p" "$here/PKGBUILD"; }
+
+case ${1:?вид ядра} in
+	lts) echo "v$(var _lts)-leksos$(var _lts_rev)" ;;
+	desktop | game | server | rt) echo "v$(var _stable)-leksos$(var _stable_rev)" ;;
+	*) echo "неизвестный вид ядра: $1" >&2; exit 1 ;;
+esac

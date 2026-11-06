@@ -1,0 +1,59 @@
+#!/bin/bash
+# Проверка загрузки: собранное ядро запускается в QEMU с крошечным
+# initramfs и должно дойти до своей программы init. Та печатает
+# LEKSOS-BOOT-OK и версию ядра и выключает машину.
+#
+#   ci/boot-test <собранное дерево ядра>
+set -euo pipefail
+
+tree=$1
+release=$(<"$tree/version")
+tmp=$(mktemp -d)
+trap 'rm -rf "$tmp"' EXIT
+
+cat > "$tmp/init.c" <<'EOF'
+#include <stdio.h>
+#include <sys/reboot.h>
+#include <sys/utsname.h>
+#include <unistd.h>
+
+int main(void)
+{
+	struct utsname u;
+
+	uname(&u);
+	printf("LEKSOS-BOOT-OK %s\n", u.release);
+	fflush(stdout);
+	sync();
+	reboot(RB_POWER_OFF);
+	return 0;
+}
+EOF
+gcc -static -O2 -o "$tmp/init" "$tmp/init.c"
+
+[[ -x $tree/usr/gen_init_cpio ]] || make -C "$tree" usr/gen_init_cpio
+cat > "$tmp/list" <<EOF
+dir /dev 0755 0 0
+nod /dev/console 0600 0 0 c 5 1
+file /init $tmp/init 0755 0 0
+EOF
+"$tree/usr/gen_init_cpio" "$tmp/list" > "$tmp/initramfs.cpio"
+
+accel=(-machine accel=tcg)
+if [[ -r /dev/kvm && -w /dev/kvm ]]; then
+	accel=(-enable-kvm -cpu host)
+fi
+
+echo "::group::загрузка $release в QEMU"
+timeout 900 qemu-system-x86_64 "${accel[@]}" -m 2048 -smp 2 \
+	-nographic -no-reboot \
+	-kernel "$tree/arch/x86/boot/bzImage" \
+	-initrd "$tmp/initramfs.cpio" \
+	-append "console=ttyS0 panic=-1 loglevel=4" | tee "$tmp/log" || true
+echo "::endgroup::"
+
+if ! grep -q "LEKSOS-BOOT-OK $release" "$tmp/log"; then
+	echo "::error::ядро $release не загрузилось"
+	exit 1
+fi
+echo "ядро $release загрузилось"

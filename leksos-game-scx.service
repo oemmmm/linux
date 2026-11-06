@@ -1,0 +1,18 @@
+[Unit]
+Description=LeksOS: игровой планировщик scx_lavd для ядра linux-leksos-game
+Documentation=https://github.com/JustAMannn/linux/tree/main
+# Работает только под игровым ядром и только если установлен scx-scheds.
+# Если хотите выбрать планировщик сами (scx_loader и т. п.), выключите
+# эту службу: sudo systemctl mask leksos-game-scx
+ConditionKernelVersion=*-leksos-game
+ConditionPathExists=/usr/bin/scx_lavd
+StartLimitIntervalSec=60
+StartLimitBurst=3
+
+[Service]
+ExecStart=/usr/bin/scx_lavd
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

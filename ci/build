@@ -1,0 +1,39 @@
+#!/bin/bash
+# Сборка одного вида ядра в контейнере Arch и проверка загрузки.
+# Запускается из GitHub Actions от root внутри archlinux:base-devel.
+#
+#   ci/build <вид> <дерево ядра> <каталог для пакетов>
+set -euo pipefail
+
+flavor=$1
+tree=$2
+out=$3
+here=$(cd "$(dirname "$0")/.." && pwd)
+work=/build
+
+echo "::group::зависимости"
+pacman -Syu --noconfirm --needed \
+	base-devel bc cpio gettext git libelf pahole perl python \
+	rust rust-bindgen rust-src tar xz zstd qemu-system-x86
+echo "::endgroup::"
+
+id builder >/dev/null 2>&1 || useradd -m builder
+mkdir -p "$work" "$out"
+cp "$here"/{PKGBUILD,check-config,leksos-game.service,leksos-game-scx.service} "$work"/
+chown -R builder: "$work" "$out"
+
+echo "::group::сборка $flavor"
+cd "$work"
+sudo -u builder env \
+	LEKSOS_FLAVOR="$flavor" \
+	LEKSOS_TREE="$tree" \
+	PKGDEST="$out" \
+	MAKEFLAGS="-j$(nproc)" \
+	makepkg --noconfirm
+echo "::endgroup::"
+
+"$here/ci/boot-test" "$work/src/linux"
+
+# Каталог с пакетами читает и дополняет уже не root, а пользователь runner.
+chmod -R a+rwX "$out"
+ls -l "$out"
