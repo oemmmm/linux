@@ -76,9 +76,9 @@ source=(
 	leksos-game.service
 	leksos-game-scx.service
 )
-sha256sums=('8bdfd269004e9463c61e0b3b9d9df42ab6e31aa6457df64fba052819454fc549'
-            '1ad3f8647cf7b21d529cdc0884c84a56cc7714f110d5d396596bc952ac21cf54'
-            '47eb592e5381abb0373cf9f43b93898f9247e4d4f4062b724f1a1ddca0b93593')
+# Эти файлы лежат здесь же, в ветке main, поэтому суммы не проверяются:
+# их можно править без updpkgsums.
+sha256sums=('SKIP' 'SKIP' 'SKIP')
 if [[ -z ${LEKSOS_TREE:-} ]]; then
 	# Архив метки из вашего же форка. GitHub не подписывает такие архивы,
 	# поэтому сумма не проверяется.
