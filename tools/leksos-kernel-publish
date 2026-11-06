@@ -73,14 +73,16 @@ for flavor in "${flavors[@]}"; do
 	done < "$sums"
 done
 
-if (( ! ${#added[@]} )); then
-	echo "нового нет"
-	exit 0
+if (( ${#added[@]} )); then
+	sign=()
+	[[ -n $key ]] && sign=(--sign --key "$key")
+	repo-add "${sign[@]}" -R "$db" "${added[@]}"
+else
+	echo "новых пакетов нет"
 fi
 
-sign=()
-[[ -n $key ]] && sign=(--sign --key "$key")
-repo-add "${sign[@]}" -R "$db" "${added[@]}"
+# Выкладываем в любом случае: так скрипт заодно дозаливает на сервер то,
+# что уже есть в репозитории здесь.
 
 if [[ -n ${LEKSOS_RSYNC:-} ]]; then
 	rsync -rltv --delay-updates --delete-after "$repo/" "$LEKSOS_RSYNC"
