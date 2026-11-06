@@ -7,7 +7,8 @@
 #   leksos-kernel-publish [вид...]     по умолчанию все: desktop game server rt lts
 #
 # Настройки — переменные окружения или файл ~/.config/leksos/publish.conf:
-#   LEKSOS_KEY    отпечаток ключа подписи (обязательно)
+#   LEKSOS_KEY    отпечаток ключа подписи; не задан — пакеты добавляются
+#                 без подписи (пока у репозитория SigLevel = Optional)
 #   LEKSOS_REPO   каталог репозитория, по умолчанию ~/repo/x86_64
 #   LEKSOS_RSYNC  куда выкладывать, например user@server:/srv/leksos/x86_64/
 #                 (не задано — только у себя)
@@ -17,7 +18,7 @@ conf=${XDG_CONFIG_HOME:-$HOME/.config}/leksos/publish.conf
 # shellcheck source=/dev/null
 [[ -f $conf ]] && . "$conf"
 
-key=${LEKSOS_KEY:?задайте LEKSOS_KEY — отпечаток ключа подписи (в $conf или в окружении)}
+key=${LEKSOS_KEY:-}
 repo=${LEKSOS_REPO:-$HOME/repo/x86_64}
 db=$repo/leksos.db.tar.zst
 github=https://github.com/oemmmm/linux
@@ -25,7 +26,13 @@ github=https://github.com/oemmmm/linux
 flavors=("$@")
 (( ${#flavors[@]} )) || flavors=(desktop game server rt lts)
 
-for tool in curl gpg repo-add sha256sum; do
+tools=(curl repo-add sha256sum)
+if [[ -n $key ]]; then
+	tools+=(gpg)
+else
+	echo "LEKSOS_KEY не задан: пакеты попадут в репозиторий без подписи" >&2
+fi
+for tool in "${tools[@]}"; do
 	command -v "$tool" >/dev/null || { echo "нет программы $tool" >&2; exit 1; }
 done
 [[ -f $db ]] || { echo "нет базы репозитория: $db" >&2; exit 1; }
@@ -57,8 +64,11 @@ for flavor in "${flavors[@]}"; do
 		echo "$file"
 		curl -fL --progress-bar "$github/releases/download/$tag/$file" -o "$tmp/$file"
 		echo "$sum  $tmp/$file" | sha256sum -c --quiet -
-		gpg --yes --local-user "$key" --detach-sign --no-armor -o "$tmp/$file.sig" "$tmp/$file"
-		mv "$tmp/$file" "$tmp/$file.sig" "$repo/"
+		if [[ -n $key ]]; then
+			gpg --yes --local-user "$key" --detach-sign --no-armor -o "$tmp/$file.sig" "$tmp/$file"
+			mv "$tmp/$file.sig" "$repo/"
+		fi
+		mv "$tmp/$file" "$repo/"
 		added+=("$repo/$file")
 	done < "$sums"
 done
@@ -68,7 +78,9 @@ if (( ! ${#added[@]} )); then
 	exit 0
 fi
 
-repo-add --sign --key "$key" -R "$db" "${added[@]}"
+sign=()
+[[ -n $key ]] && sign=(--sign --key "$key")
+repo-add "${sign[@]}" -R "$db" "${added[@]}"
 
 if [[ -n ${LEKSOS_RSYNC:-} ]]; then
 	rsync -rtv --delay-updates --delete-after "$repo/" "$LEKSOS_RSYNC"
