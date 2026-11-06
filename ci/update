@@ -17,7 +17,7 @@ set -euo pipefail
 mode=${1:-проверить}
 here=$(cd "$(dirname "$0")/.." && pwd)
 upstream=${LEKSOS_UPSTREAM:-https://github.com/gregkh/linux}
-repo=${GITHUB_REPOSITORY:-JustAMannn/linux}
+repo=${GITHUB_REPOSITORY:-oemmmm/linux}
 output=${GITHUB_OUTPUT:-/dev/stdout}
 
 case $mode in

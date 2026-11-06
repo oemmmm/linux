@@ -20,7 +20,7 @@ conf=${XDG_CONFIG_HOME:-$HOME/.config}/leksos/publish.conf
 key=${LEKSOS_KEY:?задайте LEKSOS_KEY — отпечаток ключа подписи (в $conf или в окружении)}
 repo=${LEKSOS_REPO:-$HOME/repo/x86_64}
 db=$repo/leksos.db.tar.zst
-github=https://github.com/JustAMannn/linux
+github=https://github.com/oemmmm/linux
 
 flavors=("$@")
 (( ${#flavors[@]} )) || flavors=(desktop game server rt lts)
@@ -34,7 +34,7 @@ tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 
 # Какие метки сейчас собираются — из PKGBUILD ветки main.
-curl -fsSL "https://raw.githubusercontent.com/JustAMannn/linux/main/PKGBUILD" -o "$tmp/PKGBUILD"
+curl -fsSL "https://raw.githubusercontent.com/oemmmm/linux/main/PKGBUILD" -o "$tmp/PKGBUILD"
 var() { sed -n "s/^$1=//p" "$tmp/PKGBUILD"; }
 
 added=()

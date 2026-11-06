@@ -1,4 +1,4 @@
-# Maintainer: JustAMannn
+# Maintainer: Leks_Play
 #
 # Ядра LeksOS. Этот PKGBUILD собирает любой из пяти видов ядра; вид задаёт
 # переменная LEKSOS_FLAVOR:
@@ -28,7 +28,7 @@ _lts=6.18.60
 _lts_rev=1
 
 case $_flavor in
-	desktop) _suffix=''      _what='обычное: работа, учёба, ноутбуки' ;;
+	desktop) _suffix=''      _what='обычное (работа, учёба, ноутбуки)' ;;
 	game)    _suffix=-game   _what='игровое' ;;
 	server)  _suffix=-server _what='серверное' ;;
 	rt)      _suffix=-rt     _what='реального времени' ;;
@@ -47,8 +47,8 @@ fi
 pkgbase=linux-leksos$_suffix
 pkgver=$_ver
 pkgrel=$_rev
-pkgdesc="ядро LeksOS ($_what)"
-url=https://github.com/JustAMannn/linux
+pkgdesc="Ядро LeksOS: $_what"
+url=https://github.com/oemmmm/linux
 arch=(x86_64)
 license=(GPL-2.0-only)
 makedepends=(
@@ -77,8 +77,8 @@ source=(
 	leksos-game-scx.service
 )
 sha256sums=('8bdfd269004e9463c61e0b3b9d9df42ab6e31aa6457df64fba052819454fc549'
-            '7e556c303dcb58bef7a4dfc7b7bde7823a459b9ace31c52a55bf603fa8b306a4'
-            'eb70f3cebeb2eee1adcaeaadd4ddc34237c920b43896d0863842b85539d91a35')
+            '1ad3f8647cf7b21d529cdc0884c84a56cc7714f110d5d396596bc952ac21cf54'
+            '47eb592e5381abb0373cf9f43b93898f9247e4d4f4062b724f1a1ddca0b93593')
 if [[ -z ${LEKSOS_TREE:-} ]]; then
 	# Архив метки из вашего же форка. GitHub не подписывает такие архивы,
 	# поэтому сумма не проверяется.
@@ -135,7 +135,6 @@ build() {
 }
 
 _package() {
-	pkgdesc="$pkgdesc — ядро и модули"
 	depends=(
 		coreutils
 		initramfs
@@ -183,7 +182,7 @@ _package() {
 }
 
 _package-headers() {
-	pkgdesc="$pkgdesc — заголовки и скрипты для сборки модулей"
+	pkgdesc="Заголовки ядра LeksOS для сборки модулей: $_what"
 	depends=(pahole)
 
 	cd linux

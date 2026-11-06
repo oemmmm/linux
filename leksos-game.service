@@ -1,6 +1,6 @@
 [Unit]
 Description=LeksOS: игровые настройки ядра linux-leksos-game
-Documentation=https://github.com/JustAMannn/linux/tree/main
+Documentation=https://github.com/oemmmm/linux/tree/main
 # Работает только под игровым ядром, даже если установлены и другие.
 ConditionKernelVersion=*-leksos-game
 
