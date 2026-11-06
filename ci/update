@@ -52,6 +52,18 @@ update() {
 	branch=leksos/$series
 	tagged=v$cur-leksos$rev
 
+	# Первая метка серии (или метка, которую ещё никто не поставил):
+	# ставим её на вершину ветки и собираем.
+	if ! g ls-remote --exit-code --tags origin "refs/tags/$tagged" >/dev/null; then
+		g fetch -q --depth=1 origin "+refs/heads/$branch:refs/remotes/origin/$branch"
+		tip=$(g rev-parse "refs/remotes/origin/$branch")
+		echo "серия $series: ставлю метку $tagged на ${tip:0:12}"
+		g tag "$tagged" "$tip"
+		g push -q origin "refs/tags/$tagged"
+		flavors+=("$@")
+		return
+	fi
+
 	if [[ $mode == собрать ]]; then
 		echo "серия $series: сборка $tagged"
 		flavors+=("$@")

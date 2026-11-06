@@ -69,7 +69,9 @@ zswap, NTSYNC (Wine и Proton), Rust, сжатие zstd, подписанные 
    GitHub запускает только из ветки по умолчанию.
 2. Вкладка **Actions** — в форках она выключена, нажмите кнопку, которая
    включает workflows.
-3. **Actions → Ядра LeksOS → Run workflow → собрать.**
+3. **Actions → Ядра LeksOS → Run workflow → проверить.** Первый запуск
+   сам поставит метки `v7.3.1-leksos1` и `v6.18.60-leksos1` на вершины
+   веток `leksos/*` и соберёт все пять ядер.
 
 Сборка одного ядра идёт примерно 1–2 часа. Если в репозитории 60 дней ничего
 не происходит, GitHub выключает расписание — включается там же, в Actions.
@@ -132,15 +134,15 @@ git switch -c leksos/7.4 v7.4
 git cherry-pick v7.3.1..leksos/7.3        # коммиты LeksOS (от базы текущей метки)
 ~/linux-main/ci/new-options ~/linux       # под ядром linux-leksos
 git commit -am 'leksos: настройки для 7.4'
-git tag v7.4-leksos1
-git push origin leksos/7.4 v7.4-leksos1
+git push origin leksos/7.4
 ```
 
-Здесь `~/linux-main` — клон ветки `main`. `ci/new-options` берёт настройки работающего ядра, включает новые драйверы
-модулями, записывает `leksos_defconfig` и проверяет все виды ядра. Потом в
-`main` поменяйте в `PKGBUILD` `_stable=7.4` и `_stable_rev=1` и запустите
-workflow → **собрать**. Запасное ядро переходит на новую LTS так же, через
-`_lts` и `_lts_rev`.
+Здесь `~/linux-main` — клон ветки `main`. `ci/new-options` берёт настройки
+работающего ядра, включает новые драйверы модулями, записывает
+`leksos_defconfig` и проверяет все виды ядра. Потом в `main` поменяйте в
+`PKGBUILD` `_stable=7.4` и `_stable_rev=1` и запустите workflow →
+**проверить**: он сам поставит метку `v7.4-leksos1` и соберёт ядра.
+Запасное ядро переходит на новую LTS так же, через `_lts` и `_lts_rev`.
 
 ## Что нужно знать
 
