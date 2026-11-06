@@ -83,7 +83,7 @@ sign=()
 repo-add "${sign[@]}" -R "$db" "${added[@]}"
 
 if [[ -n ${LEKSOS_RSYNC:-} ]]; then
-	rsync -rtv --delay-updates --delete-after "$repo/" "$LEKSOS_RSYNC"
+	rsync -rltv --delay-updates --delete-after "$repo/" "$LEKSOS_RSYNC"
 else
 	echo "LEKSOS_RSYNC не задан: репозиторий обновлён только здесь, в $repo"
 fi
