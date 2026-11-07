@@ -1,17 +1,8 @@
 #!/bin/bash
-# Помощник при переходе на новую серию ядра (например, 7.3 → 7.4).
-#
-#   ci/new-options <дерево новой версии> [настройки прошлой версии]
-#
-# Берёт полные настройки прошлой версии (по умолчанию /proc/config.gz —
-# запускайте под обычным ядром linux-leksos), находит опции, которых там не
-# было, включает новые драйверы модулями и записывает результат в
-# arch/x86/configs/leksos_defconfig нового дерева. Потом проверяет, что все
-# виды ядра собираются со своими добавками.
 set -euo pipefail
 
 if (( $# < 1 )); then
-	echo "использование: $0 <дерево новой версии> [настройки прошлой версии]" >&2
+	echo "use $0" >&2
 	exit 2
 fi
 
@@ -31,25 +22,22 @@ else
 fi
 
 k base listnewconfig > "$build/new.txt"
-echo "новых опций: $(wc -l < "$build/new.txt")"
+echo "new options $(wc -l < "$build/new.txt")"
 k base olddefconfig
-
-# Новые опции, выключенные по умолчанию, — модулями. Булевы опции Kconfig
-# модулем не примет и оставит выключенными; отладку и тесты не трогаем.
 grep -E '=n$' "$build/new.txt" | cut -d= -f1 |
 	grep -v -E 'TEST|DEBUG|BENCHMARK|KUNIT|SELFTEST|SAMPLE|EXAMPLE|WERROR|TRACE' |
 	sed 's/$/=m/' > "$build/modules.txt" || true
 cat "$build/modules.txt" >> "$build/base/.config"
 k base olddefconfig 2>/dev/null
 
-echo "включены модулями:"
+echo "turned off by modules"
 while IFS='=' read -r sym _; do
 	grep -q "^$sym=m$" "$build/base/.config" && echo "  $sym"
 done < "$build/modules.txt"
 
 k base savedefconfig
 cp "$build/base/defconfig" "$tree/arch/x86/configs/leksos_defconfig"
-echo "записано: arch/x86/configs/leksos_defconfig"
+echo "arch/x86/configs/leksos_defconfig"
 
 status=0
 for fragment in "$tree"/kernel/configs/leksos-*.config; do
