@@ -1,17 +1,4 @@
 #!/bin/bash
-# Ищет новые выпуски ядра, переносит на них ветки LeksOS и ставит метки.
-#
-#   ci/update [проверить|собрать|пересобрать]
-#
-#   проверить    (по умолчанию) вышла новая версия ядра или в ветке
-#                leksos/<серия> появились коммиты → новая метка и сборка
-#   собрать      собрать текущие метки, ничего не меняя (первая сборка или
-#                повтор после сбоя)
-#   пересобрать  новая метка (номер сборки +1), даже если ничего не менялось
-#
-# Запускается в GitHub Actions в клоне ветки main; нужен GH_TOKEN.
-# Пишет в $GITHUB_OUTPUT build=true|false и flavors=[...] — какие виды
-# ядра собирать.
 set -euo pipefail
 
 mode=${1:-проверить}
@@ -29,7 +16,6 @@ var() { sed -n "s/^$1=//p" "$here/PKGBUILD"; }
 setvar() { sed -i "s/^$1=.*/$1=$2/" "$here/PKGBUILD"; }
 g() { git -C "$here" "$@"; }
 
-# Последний выпуск серии: latest 7.3 → 7.3.2 (или 7.3, если точечных ещё нет).
 latest() {
 	git ls-remote --tags --refs "$upstream" "refs/tags/v$1" "refs/tags/v$1.*" |
 		sed 's#.*refs/tags/v##' | grep -E '^[0-9]+(\.[0-9]+)*$' | sort -V | tail -n1
@@ -41,7 +27,6 @@ g config user.email '41898282+github-actions[bot]@users.noreply.github.com'
 flavors=()
 changes=()
 
-# update <переменная версии> <переменная номера> <виды ядра...>
 update() {
 	local vervar=$1 revvar=$2
 	shift 2
@@ -51,9 +36,6 @@ update() {
 	series=$(cut -d. -f1,2 <<<"$cur")
 	branch=leksos/$series
 	tagged=v$cur-leksos$rev
-
-	# Первая метка серии (или метка, которую ещё никто не поставил):
-	# ставим её на вершину ветки и собираем.
 	if ! g ls-remote --exit-code --tags origin "refs/tags/$tagged" >/dev/null; then
 		g fetch -q --depth=1 origin "+refs/heads/$branch:refs/remotes/origin/$branch"
 		tip=$(g rev-parse "refs/remotes/origin/$branch")
@@ -84,9 +66,6 @@ update() {
 
 	if [[ $new != "$cur" ]]; then
 		echo "серия $series: $cur → $new"
-		# Ветку можно отправить из неглубокого клона, только если в форке уже
-		# есть коммит нового выпуска, поэтому сначала подтягиваем в форк
-		# ветку стабильной серии.
 		gh api -X POST "repos/$repo/merge-upstream" -f branch="linux-$series.y" >/dev/null ||
 			echo "::warning::не удалось обновить linux-$series.y из $upstream"
 		g fetch -q --depth=1 "$upstream" \
@@ -96,7 +75,7 @@ update() {
 		g worktree add -q --detach "$wt" "$tip"
 		if ! git -C "$wt" rebase -q --onto "v$new" "v$cur"; then
 			git -C "$wt" rebase --abort || true
-			echo "::error::правки LeksOS не переносятся на $new сами: перенесите ветку $branch вручную (README, «Новая версия ядра»)"
+			echo "::error::правки leksOS не переносятся на $new"
 			exit 1
 		fi
 		tip=$(git -C "$wt" rev-parse HEAD)
@@ -124,13 +103,11 @@ update() {
 update _stable _stable_rev desktop game server rt
 update _lts _lts_rev lts
 
-# Новая серия (например, 7.4) переносится вручную: там нужно проверить
-# новые опции. Здесь только напоминание.
 stable_series=$(cut -d. -f1,2 <<<"$(var _stable)")
 newest=$(git ls-remote --tags --refs "$upstream" 'refs/tags/v*' |
 	sed -n 's#.*refs/tags/v\([0-9]*\.[0-9]*\)$#\1#p' | sort -V | tail -n1)
 if [[ -n $newest && $(printf '%s\n' "$stable_series" "$newest" | sort -V | tail -n1) != "$stable_series" ]]; then
-	echo "::warning::вышло ядро $newest: создайте ветку leksos/$newest (README, «Новая версия ядра»)"
+	echo "::warning::вышло ядро $newest: надо создать ветку leksos/$newest (README, 'новая версия ядра')"
 fi
 
 if (( ${#changes[@]} )); then
