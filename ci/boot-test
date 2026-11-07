@@ -1,9 +1,4 @@
 #!/bin/bash
-# Проверка загрузки: собранное ядро запускается в QEMU с крошечным
-# initramfs и должно дойти до своей программы init. Та печатает
-# LEKSOS-BOOT-OK и версию ядра и выключает машину.
-#
-#   ci/boot-test <собранное дерево ядра>
 set -euo pipefail
 
 tree=$1
@@ -44,7 +39,7 @@ if [[ -r /dev/kvm && -w /dev/kvm ]]; then
 	accel=(-enable-kvm -cpu host)
 fi
 
-echo "::group::загрузка $release в QEMU"
+echo "::group::$release QEMU"
 timeout 900 qemu-system-x86_64 "${accel[@]}" -m 2048 -smp 2 \
 	-nographic -no-reboot \
 	-kernel "$tree/arch/x86/boot/bzImage" \
@@ -53,7 +48,7 @@ timeout 900 qemu-system-x86_64 "${accel[@]}" -m 2048 -smp 2 \
 echo "::endgroup::"
 
 if ! grep -q "LEKSOS-BOOT-OK $release" "$tmp/log"; then
-	echo "::error::ядро $release не загрузилось"
+	echo "::error::$release NO LOAD"
 	exit 1
 fi
-echo "ядро $release загрузилось"
+echo "$release"
