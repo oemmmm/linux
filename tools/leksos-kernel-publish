@@ -38,7 +38,7 @@ for flavor in "${flavors[@]}"; do
 		*) echo "неизвестный вид ядра: $flavor" >&2; exit 1 ;;
 	esac
 	sums=$tmp/sha256sums-$flavor.txt
-	if ! curl -fsSL "$github/releases/download/$tag/sha256sums-$flavor.txt" -o "$sums"; then
+	if ! curl -fsL "$github/releases/download/$tag/sha256sums-$flavor.txt" -o "$sums"; then
 		echo "$flavor: в релизе $tag пакетов пока нет"
 		continue
 	fi
