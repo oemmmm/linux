@@ -1,10 +1,4 @@
 #!/bin/bash
-# Выкладывает пакеты одного вида ядра в релиз GitHub с именем метки.
-# Отсюда их забирает tools/leksos-kernel-publish.
-#
-#   ci/release <метка> <вид> <каталог с пакетами>
-#
-# Нужны GH_TOKEN и GH_REPO (их задаёт workflow).
 set -euo pipefail
 
 tag=$1
@@ -15,10 +9,6 @@ cd "$out"
 sha256sum -- *.pkg.tar.zst > "sha256sums-$flavor.txt"
 cat "sha256sums-$flavor.txt"
 
-notes="Ядра LeksOS по метке $tag. Пакеты не подписаны: подпись ставится,
-когда они попадают в репозиторий [leksos] (tools/leksos-kernel-publish)."
-
-# Релиз могла только что создать сборка другого вида ядра.
 if ! gh release view "$tag" >/dev/null 2>&1; then
 	gh release create "$tag" --verify-tag --title "$tag" --notes "$notes" ||
 		gh release view "$tag" >/dev/null
