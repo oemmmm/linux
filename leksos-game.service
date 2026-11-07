@@ -1,15 +1,11 @@
 [Unit]
-Description=LeksOS: игровые настройки ядра linux-leksos-game
+Description=настройки для linux-leksos-game
 Documentation=https://github.com/oemmmm/linux/tree/main
-# Работает только под игровым ядром, даже если установлены и другие.
 ConditionKernelVersion=*-leksos-game
 
 [Service]
 Type=oneshot
 RemainAfterExit=yes
-# Не замедлять программы, которые делают split lock: из-за этого
-# подтормаживают некоторые игры. На процессорах без такой проверки этого
-# параметра нет, поэтому ошибка здесь не важна (знак «-»).
 ExecStart=-/usr/bin/sysctl -q -w kernel.split_lock_mitigate=0
 
 [Install]
