@@ -1,4 +1,4 @@
-name: Ядра LeksOS
+name: ядра leksos
 
 on:
   schedule:
@@ -85,7 +85,7 @@ jobs:
             archlinux:base-devel \
             /w/pkg/ci/build "${{ matrix.flavor }}" /w/kernel /w/out
 
-      - name: выложить в релиз
+      - name: выложить
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
