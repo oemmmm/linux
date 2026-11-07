@@ -5,6 +5,8 @@ tag=$1
 flavor=$2
 out=$3
 
+notes="ядра leksos по метке $tag"
+
 cd "$out"
 sha256sum -- *.pkg.tar.zst > "sha256sums-$flavor.txt"
 cat "sha256sums-$flavor.txt"
