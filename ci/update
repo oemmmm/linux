@@ -107,7 +107,7 @@ stable_series=$(cut -d. -f1,2 <<<"$(var _stable)")
 newest=$(git ls-remote --tags --refs "$upstream" 'refs/tags/v*' |
 	sed -n 's#.*refs/tags/v\([0-9]*\.[0-9]*\)$#\1#p' | sort -V | tail -n1)
 if [[ -n $newest && $(printf '%s\n' "$stable_series" "$newest" | sort -V | tail -n1) != "$stable_series" ]]; then
-	echo "::warning::вышло ядро $newest: надо создать ветку leksos/$newest (README, 'новая версия ядра')"
+	echo "::warning::вышло ядро $newest: надо создать ветку leksos/$newest"
 fi
 
 if (( ${#changes[@]} )); then
