@@ -1,40 +1,17 @@
-# Maintainer: Leks_Play
-#
-# Ядра LeksOS. Этот PKGBUILD собирает любой из пяти видов ядра; вид задаёт
-# переменная LEKSOS_FLAVOR:
-#
-#   desktop  linux-leksos         обычное: работа, учёба, ноутбуки
-#   game     linux-leksos-game    игровое
-#   server   linux-leksos-server  серверное
-#   rt       linux-leksos-rt      реального времени
-#   lts      linux-leksos-lts     запасное, на ветке с долгой поддержкой
-#
-#   LEKSOS_FLAVOR=game makepkg -s
-#
-# Исходники берутся по метке форка на GitHub. Если задан LEKSOS_TREE, ядро
-# собирается из готового дерева: так собирает GitHub Actions, и так удобно
-# проверять свои правки до коммита.
-#
-#   LEKSOS_TREE=~/linux LEKSOS_FLAVOR=desktop makepkg -s
-
 _flavor=${LEKSOS_FLAVOR:-desktop}
-
-# Версии ядра и номера сборок LeksOS: метки форка называются
-# v<версия>-leksos<номер>, а номер сборки становится pkgrel.
-# Эти строки меняет ci/update.
 _stable=7.3.1
 _stable_rev=1
 _lts=6.18.60
 _lts_rev=1
 
 case $_flavor in
-	desktop) _suffix=''      _what='обычное (работа, учёба, ноутбуки)' ;;
+	desktop) _suffix=''      _what='обычное' ;;
 	game)    _suffix=-game   _what='игровое' ;;
 	server)  _suffix=-server _what='серверное' ;;
 	rt)      _suffix=-rt     _what='реального времени' ;;
-	lts)     _suffix=-lts    _what='запасное, с долгой поддержкой' ;;
+	lts)     _suffix=-lts    _what='запасное' ;;
 	*)
-		echo "неизвестный вид ядра '$_flavor': desktop, game, server, rt или lts" >&2
+		echo "неизвестный вид ядра" >&2
 		exit 1
 		;;
 esac
@@ -76,12 +53,8 @@ source=(
 	leksos-game.service
 	leksos-game-scx.service
 )
-# Эти файлы лежат здесь же, в ветке main, поэтому суммы не проверяются:
-# их можно править без updpkgsums.
 sha256sums=('SKIP' 'SKIP' 'SKIP')
 if [[ -z ${LEKSOS_TREE:-} ]]; then
-	# Архив метки из вашего же форка. GitHub не подписывает такие архивы,
-	# поэтому сумма не проверяется.
 	source+=("linux-$_tag.tar.gz::$url/archive/refs/tags/$_tag.tar.gz")
 	sha256sums+=('SKIP')
 fi
@@ -99,7 +72,6 @@ prepare() {
 		mkdir linux
 		tar -C "$LEKSOS_TREE" --exclude=.git -cf - . | tar -C linux -xf -
 	else
-		# GitHub называет каталог архива без «v» в начале метки.
 		local dir
 		for dir in "linux-${_tag#v}" "linux-$_tag"; do
 			if [[ -d $dir ]]; then
@@ -115,8 +87,6 @@ prepare() {
 	cd linux
 
 	make -s mrproper
-
-	# uname -r: 7.3.1-1-leksos, 7.3.1-1-leksos-game и т. д.
 	echo "-$pkgrel" > localversion.10-pkgrel
 	echo "${pkgbase#linux}" > localversion.20-pkgname
 
@@ -158,15 +128,12 @@ _package() {
 	local modulesdir="$pkgdir/usr/lib/modules/$(<version)"
 
 	echo "ядро..."
-	# systemd ищет ядро здесь (нужно для гибернации)
 	install -Dm644 "$(make -s image_name)" "$modulesdir/vmlinuz"
-
-	# По этому файлу mkinitcpio называет ядро в /boot
 	echo "$pkgbase" | install -Dm644 /dev/stdin "$modulesdir/pkgbase"
 
 	echo "модули..."
 	ZSTD_CLEVEL=19 make INSTALL_MOD_PATH="$pkgdir/usr" INSTALL_MOD_STRIP=1 \
-		DEPMOD=/doesnt/exist modules_install # depmod запустит хук mkinitcpio
+		DEPMOD=/doesnt/exist modules_install
 
 	rm "$modulesdir"/build
 
@@ -195,30 +162,19 @@ _package-headers() {
 	install -Dt "$builddir/arch/x86" -m644 arch/x86/Makefile
 	cp -t "$builddir" -a scripts
 	ln -srt "$builddir" "$builddir/scripts/gdb/vmlinux-gdb.py"
-
-	# нужно при STACK_VALIDATION
 	install -Dt "$builddir/tools/objtool" tools/objtool/objtool
-
-	# нужно при DEBUG_INFO_BTF_MODULES
 	install -Dt "$builddir/tools/bpf/resolve_btfids" tools/bpf/resolve_btfids/resolve_btfids
 
 	echo "заголовки..."
 	cp -t "$builddir" -a include
 	cp -t "$builddir/arch/x86" -a arch/x86/include
 	install -Dt "$builddir/arch/x86/kernel" -m644 arch/x86/kernel/asm-offsets.s
-
 	install -Dt "$builddir/drivers/md" -m644 drivers/md/*.h
 	install -Dt "$builddir/net/mac80211" -m644 net/mac80211/*.h
-
-	# https://bugs.archlinux.org/task/13146
 	install -Dt "$builddir/drivers/media/i2c" -m644 drivers/media/i2c/msp3400-driver.h
-
-	# https://bugs.archlinux.org/task/20402
 	install -Dt "$builddir/drivers/media/usb/dvb-usb" -m644 drivers/media/usb/dvb-usb/*.h
 	install -Dt "$builddir/drivers/media/dvb-frontends" -m644 drivers/media/dvb-frontends/*.h
 	install -Dt "$builddir/drivers/media/tuners" -m644 drivers/media/tuners/*.h
-
-	# https://bugs.archlinux.org/task/71392
 	install -Dt "$builddir/drivers/iio/common/hid-sensors" -m644 drivers/iio/common/hid-sensors/*.h
 
 	echo "файлы Kconfig..."
@@ -232,7 +188,7 @@ _package-headers() {
 
 	echo "vDSO без удаления символов..."
 	make INSTALL_MOD_PATH="$pkgdir/usr" vdso_install \
-		link= # без ссылок build-id
+		link=
 
 	echo "лишние архитектуры..."
 	local arch
@@ -254,13 +210,13 @@ _package-headers() {
 	local file
 	while read -rd '' file; do
 		case "$(file -Sib "$file")" in
-			application/x-sharedlib\;*)      # библиотеки .so
+			application/x-sharedlib\;*)
 				strip -v $STRIP_SHARED "$file" ;;
-			application/x-archive\;*)        # библиотеки .a
+			application/x-archive\;*)
 				strip -v $STRIP_STATIC "$file" ;;
-			application/x-executable\;*)     # программы
+			application/x-executable\;*)
 				strip -v $STRIP_BINARIES "$file" ;;
-			application/x-pie-executable\;*) # перемещаемые программы
+			application/x-pie-executable\;*)
 				strip -v $STRIP_SHARED "$file" ;;
 		esac
 	done < <(find "$builddir" -type f -perm -u+x ! -name vmlinux -print0)
