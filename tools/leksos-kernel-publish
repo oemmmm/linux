@@ -1,17 +1,4 @@
 #!/bin/bash
-# Забирает собранные ядра LeksOS из релизов GitHub, проверяет суммы,
-# подписывает своим ключом и добавляет в репозиторий [leksos], а потом
-# выкладывает репозиторий на сервер. Запускается на вашем компьютере:
-# ключ подписи никуда не уходит.
-#
-#   leksos-kernel-publish [вид...]     по умолчанию все: desktop game server rt lts
-#
-# Настройки — переменные окружения или файл ~/.config/leksos/publish.conf:
-#   LEKSOS_KEY    отпечаток ключа подписи; не задан — пакеты добавляются
-#                 без подписи (пока у репозитория SigLevel = Optional)
-#   LEKSOS_REPO   каталог репозитория, по умолчанию ~/repo/x86_64
-#   LEKSOS_RSYNC  куда выкладывать, например user@server:/srv/leksos/x86_64/
-#                 (не задано — только у себя)
 set -euo pipefail
 
 conf=${XDG_CONFIG_HOME:-$HOME/.config}/leksos/publish.conf
@@ -30,7 +17,7 @@ tools=(curl repo-add sha256sum)
 if [[ -n $key ]]; then
 	tools+=(gpg)
 else
-	echo "LEKSOS_KEY не задан: пакеты попадут в репозиторий без подписи" >&2
+	echo "LEKSOS_KEY не задан, без подписи" >&2
 fi
 for tool in "${tools[@]}"; do
 	command -v "$tool" >/dev/null || { echo "нет программы $tool" >&2; exit 1; }
@@ -40,7 +27,6 @@ done
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 
-# Какие метки сейчас собираются — из PKGBUILD ветки main.
 curl -fsSL "https://raw.githubusercontent.com/oemmmm/linux/main/PKGBUILD" -o "$tmp/PKGBUILD"
 var() { sed -n "s/^$1=//p" "$tmp/PKGBUILD"; }
 
@@ -53,7 +39,7 @@ for flavor in "${flavors[@]}"; do
 	esac
 	sums=$tmp/sha256sums-$flavor.txt
 	if ! curl -fsSL "$github/releases/download/$tag/sha256sums-$flavor.txt" -o "$sums"; then
-		echo "$flavor: в релизе $tag пакетов пока нет — сборка ещё идёт или не удалась"
+		echo "$flavor: в релизе $tag пакетов пока нет"
 		continue
 	fi
 	while read -r sum file; do
@@ -81,11 +67,8 @@ else
 	echo "новых пакетов нет"
 fi
 
-# Выкладываем в любом случае: так скрипт заодно дозаливает на сервер то,
-# что уже есть в репозитории здесь.
-
 if [[ -n ${LEKSOS_RSYNC:-} ]]; then
 	rsync -rltv --delay-updates --delete-after "$repo/" "$LEKSOS_RSYNC"
 else
-	echo "LEKSOS_RSYNC не задан: репозиторий обновлён только здесь, в $repo"
+	echo "LEKSOS_RSYNC не задан"
 fi
