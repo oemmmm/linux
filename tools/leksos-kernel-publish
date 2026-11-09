@@ -31,6 +31,7 @@ curl -fsSL "https://raw.githubusercontent.com/oemmmm/linux/main/PKGBUILD" -o "$t
 var() { sed -n "s/^$1=//p" "$tmp/PKGBUILD"; }
 
 added=()
+failed=0
 for flavor in "${flavors[@]}"; do
 	case $flavor in
 		lts) tag=v$(var _lts)-leksos$(var _lts_rev) ;;
@@ -38,10 +39,20 @@ for flavor in "${flavors[@]}"; do
 		*) echo "неизвестный вид ядра: $flavor" >&2; exit 1 ;;
 	esac
 	sums=$tmp/sha256sums-$flavor.txt
-	if ! curl -fsL "$github/releases/download/$tag/sha256sums-$flavor.txt" -o "$sums"; then
-		echo "$flavor: в релизе $tag пакетов пока нет"
-		continue
-	fi
+	code=$(curl -sL -o "$sums" -w '%{http_code}' \
+		"$github/releases/download/$tag/sha256sums-$flavor.txt") || code=000
+	case $code in
+		200) ;;
+		404)
+			echo "$flavor: в релизе $tag пакетов пока нет"
+			continue
+			;;
+		*)
+			echo "$flavor: не удалось скачать суммы из $tag (код $code), запустите ещё раз позже" >&2
+			failed=1
+			continue
+			;;
+	esac
 	while read -r sum file; do
 		if [[ -e $repo/$file ]]; then
 			echo "$file: уже в репозитории"
@@ -72,3 +83,5 @@ if [[ -n ${LEKSOS_RSYNC:-} ]]; then
 else
 	echo "LEKSOS_RSYNC не задан"
 fi
+
+exit "$failed"
