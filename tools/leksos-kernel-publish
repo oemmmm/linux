@@ -13,7 +13,7 @@ github=https://github.com/oemmmm/linux
 flavors=("$@")
 (( ${#flavors[@]} )) || flavors=(desktop game server rt lts)
 
-tools=(curl repo-add sha256sum)
+tools=(bsdtar curl repo-add sha256sum)
 if [[ -n $key ]]; then
 	tools+=(gpg)
 else
@@ -29,6 +29,11 @@ trap 'rm -rf "$tmp"' EXIT
 
 curl -fsSL "https://raw.githubusercontent.com/oemmmm/linux/main/PKGBUILD" -o "$tmp/PKGBUILD"
 var() { sed -n "s/^$1=//p" "$tmp/PKGBUILD"; }
+
+# Что уже записано в базе: имя-версия-сборка, по строке на пакет.
+# Решаем по базе, а не по файлам в папке: файл мог остаться от
+# прерванного запуска и так и не попасть в базу.
+indb=$(bsdtar -tf "$db" | sed -n 's#/desc$##p')
 
 added=()
 failed=0
@@ -54,18 +59,21 @@ for flavor in "${flavors[@]}"; do
 			;;
 	esac
 	while read -r sum file; do
-		if [[ -e $repo/$file ]]; then
+		if grep -qxF "${file%-*.pkg.tar.*}" <<<"$indb"; then
 			echo "$file: уже в репозитории"
 			continue
 		fi
-		echo "$file"
-		curl -fL --progress-bar "$github/releases/download/$tag/$file" -o "$tmp/$file"
-		echo "$sum  $tmp/$file" | sha256sum -c --quiet -
-		if [[ -n $key ]]; then
-			gpg --yes --local-user "$key" --detach-sign --no-armor -o "$tmp/$file.sig" "$tmp/$file"
-			mv "$tmp/$file.sig" "$repo/"
+		if [[ -e $repo/$file ]] && echo "$sum  $repo/$file" | sha256sum -c --quiet - 2>/dev/null; then
+			echo "$file: уже скачан, добавляю в базу"
+		else
+			echo "$file"
+			curl -fL --progress-bar "$github/releases/download/$tag/$file" -o "$tmp/$file"
+			echo "$sum  $tmp/$file" | sha256sum -c --quiet -
+			mv "$tmp/$file" "$repo/"
 		fi
-		mv "$tmp/$file" "$repo/"
+		if [[ -n $key ]]; then
+			gpg --yes --local-user "$key" --detach-sign --no-armor -o "$repo/$file.sig" "$repo/$file"
+		fi
 		added+=("$repo/$file")
 	done < "$sums"
 done
