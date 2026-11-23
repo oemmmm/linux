@@ -1,7 +1,7 @@
 _flavor=${LEKSOS_FLAVOR:-desktop}
-_stable=7.3.5
+_stable=7.3.6
 _stable_rev=1
-_lts=6.18.64
+_lts=6.18.65
 _lts_rev=1
 
 case $_flavor in
