@@ -1,5 +1,5 @@
 [Unit]
-Description=планировщик scx_lavd
+Description=scx_lavd planner
 Documentation=https://github.com/oemmmm/linux/tree/main
 ConditionKernelVersion=*-leksos-game
 ConditionPathExists=/usr/bin/scx_lavd
