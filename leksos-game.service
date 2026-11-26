@@ -1,5 +1,5 @@
 [Unit]
-Description=настройки для linux-leksos-game
+Description=linux-leksos-game settings
 Documentation=https://github.com/oemmmm/linux/tree/main
 ConditionKernelVersion=*-leksos-game
 
