@@ -1,15 +1,15 @@
 #!/bin/bash
 set -euo pipefail
 
-mode=${1:-проверить}
+mode=${1:-check}
 here=$(cd "$(dirname "$0")/.." && pwd)
 upstream=${LEKSOS_UPSTREAM:-https://github.com/gregkh/linux}
 repo=${GITHUB_REPOSITORY:-oemmmm/linux}
 output=${GITHUB_OUTPUT:-/dev/stdout}
 
 case $mode in
-	проверить | собрать | пересобрать) ;;
-	*) echo "неизвестный режим: $mode" >&2; exit 2 ;;
+	check | build | rebuild) ;;
+	*) echo "unknown mode: $mode" >&2; exit 2 ;;
 esac
 
 var() { sed -n "s/^$1=//p" "$here/PKGBUILD"; }
@@ -39,22 +39,22 @@ update() {
 	if ! g ls-remote --exit-code --tags origin "refs/tags/$tagged" >/dev/null; then
 		g fetch -q --depth=1 origin "+refs/heads/$branch:refs/remotes/origin/$branch"
 		tip=$(g rev-parse "refs/remotes/origin/$branch")
-		echo "серия $series: ставлю метку $tagged на ${tip:0:12}"
+		echo "series $series: tagging $tagged at ${tip:0:12}"
 		g tag "$tagged" "$tip"
 		g push -q origin "refs/tags/$tagged"
 		flavors+=("$@")
 		return
 	fi
 
-	if [[ $mode == собрать ]]; then
-		echo "серия $series: сборка $tagged"
+	if [[ $mode == build ]]; then
+		echo "series $series: building $tagged"
 		flavors+=("$@")
 		return
 	fi
 
 	new=$(latest "$series")
 	if [[ -z $new ]]; then
-		echo "::error::в $upstream нет выпусков серии $series"
+		echo "::error::$upstream has no releases for series $series"
 		exit 1
 	fi
 
@@ -65,9 +65,9 @@ update() {
 	old=$tip
 
 	if [[ $new != "$cur" ]]; then
-		echo "серия $series: $cur → $new"
+		echo "series $series: $cur -> $new"
 		gh api -X POST "repos/$repo/merge-upstream" -f branch="linux-$series.y" >/dev/null ||
-			echo "::warning::не удалось обновить linux-$series.y из $upstream"
+			echo "::warning::failed to update linux-$series.y from $upstream"
 		g fetch -q --depth=1 "$upstream" \
 			"+refs/tags/v$cur:refs/tags/v$cur" \
 			"+refs/tags/v$new:refs/tags/v$new"
@@ -75,7 +75,7 @@ update() {
 		g worktree add -q --detach "$wt" "$tip"
 		if ! git -C "$wt" rebase -q --onto "v$new" "v$cur"; then
 			git -C "$wt" rebase --abort || true
-			echo "::error::правки leksOS не переносятся на $new"
+			echo "::error::LeksOS patches could not be rebased onto $new"
 			exit 1
 		fi
 		tip=$(git -C "$wt" rev-parse HEAD)
@@ -83,11 +83,11 @@ update() {
 		g push -q --force-with-lease="refs/heads/$branch:$old" origin "$tip:refs/heads/$branch"
 		cur=$new
 		rev=1
-	elif [[ $mode == пересобрать || $tip != "$(g rev-parse "refs/tags/$tagged^{commit}")" ]]; then
+	elif [[ $mode == rebuild || $tip != "$(g rev-parse "refs/tags/$tagged^{commit}")" ]]; then
 		rev=$((rev + 1))
-		echo "серия $series: новая сборка $cur-leksos$rev"
+		echo "series $series: new build $cur-leksos$rev"
 	else
-		echo "серия $series: $tagged, ничего нового"
+		echo "series $series: $tagged, nothing new"
 		return
 	fi
 
@@ -107,11 +107,11 @@ stable_series=$(cut -d. -f1,2 <<<"$(var _stable)")
 newest=$(git ls-remote --tags --refs "$upstream" 'refs/tags/v*' |
 	sed -n 's#.*refs/tags/v\([0-9]*\.[0-9]*\)$#\1#p' | sort -V | tail -n1)
 if [[ -n $newest && $(printf '%s\n' "$stable_series" "$newest" | sort -V | tail -n1) != "$stable_series" ]]; then
-	echo "::warning::вышло ядро $newest: надо создать ветку leksos/$newest"
+	echo "::warning::kernel $newest is out: branch leksos/$newest needs to be created"
 fi
 
 if (( ${#changes[@]} )); then
-	g commit -q -am "ядра: ${changes[*]}"
+	g commit -q -am "kernels: ${changes[*]}"
 	g push -q origin HEAD:refs/heads/main
 fi
 
