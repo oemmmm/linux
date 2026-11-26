@@ -5,14 +5,8 @@ tag=$1
 flavor=$2
 out=$3
 
-notes="ядра leksos по метке $tag"
+notes="leksos kernels for tag $tag"
 
 cd "$out"
 sha256sum -- *.pkg.tar.zst > "sha256sums-$flavor.txt"
-cat "sha256sums-$flavor.txt"
-
-if ! gh release view "$tag" >/dev/null 2>&1; then
-	gh release create "$tag" --verify-tag --title "$tag" --notes "$notes" ||
-		gh release view "$tag" >/dev/null
-fi
-gh release upload "$tag" --clobber -- *.pkg.tar.zst "sha256sums-$flavor.txt"
+cat
