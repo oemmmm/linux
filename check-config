@@ -2,7 +2,7 @@
 set -euo pipefail
 
 if (( $# < 2 )); then
-	echo "использование: $0 .config добавка.config..." >&2
+	echo "use: $0 .config add.config..." >&2
 	exit 2
 fi
 
@@ -37,9 +37,9 @@ while read -r sym; do
 	actual=${have[$sym]:-n}
 	if [[ $expected != "$actual" ]]; then
 		if (( ! bad )); then
-			echo "ядро не приняло настройки:" >&2
+			echo "kernel did not accept the settings:" >&2
 		fi
-		printf '  %s: нужно %s, получилось %s (%s)\n' \
+		printf '  %s: excepted %s, actual %s (%s)\n' \
 			"$sym" "$expected" "$actual" "${from[$sym]}" >&2
 		bad=1
 	fi
@@ -48,4 +48,4 @@ done < <(printf '%s\n' "${!want[@]}" | sort)
 if (( bad )); then
 	exit 1
 fi
-echo "настройки в порядке (проверено опций: ${#want[@]})"
+echo "all settings set up (checked: ${#want[@]})"
