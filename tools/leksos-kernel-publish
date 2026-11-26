@@ -17,12 +17,12 @@ tools=(bsdtar curl repo-add sha256sum)
 if [[ -n $key ]]; then
 	tools+=(gpg)
 else
-	echo "LEKSOS_KEY не задан, без подписи" >&2
+	echo "LEKSOS_KEY is not set, not signing" >&2
 fi
 for tool in "${tools[@]}"; do
-	command -v "$tool" >/dev/null || { echo "нет программы $tool" >&2; exit 1; }
+	command -v "$tool" >/dev/null || { echo "missing tool: $tool" >&2; exit 1; }
 done
-[[ -f $db ]] || { echo "нет базы репозитория: $db" >&2; exit 1; }
+[[ -f $db ]] || { echo "repository database not found: $db" >&2; exit 1; }
 
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
@@ -30,9 +30,10 @@ trap 'rm -rf "$tmp"' EXIT
 curl -fsSL "https://raw.githubusercontent.com/oemmmm/linux/main/PKGBUILD" -o "$tmp/PKGBUILD"
 var() { sed -n "s/^$1=//p" "$tmp/PKGBUILD"; }
 
-# Что уже записано в базе: имя-версия-сборка, по строке на пакет.
-# Решаем по базе, а не по файлам в папке: файл мог остаться от
-# прерванного запуска и так и не попасть в базу.
+# What is already recorded in the database: name-version-build, one line
+# per package. We decide by the database, not by the files in the folder:
+# a file may be left over from an interrupted run and never have made it
+# into the database.
 indb=$(bsdtar -tf "$db" | sed -n 's#/desc$##p')
 
 added=()
@@ -41,7 +42,7 @@ for flavor in "${flavors[@]}"; do
 	case $flavor in
 		lts) tag=v$(var _lts)-leksos$(var _lts_rev) ;;
 		desktop | game | server | rt) tag=v$(var _stable)-leksos$(var _stable_rev) ;;
-		*) echo "неизвестный вид ядра: $flavor" >&2; exit 1 ;;
+		*) echo "unknown kernel flavor: $flavor" >&2; exit 1 ;;
 	esac
 	sums=$tmp/sha256sums-$flavor.txt
 	code=$(curl -sL -o "$sums" -w '%{http_code}' \
@@ -49,22 +50,22 @@ for flavor in "${flavors[@]}"; do
 	case $code in
 		200) ;;
 		404)
-			echo "$flavor: в релизе $tag пакетов пока нет"
+			echo "$flavor: no packages in release $tag yet"
 			continue
 			;;
 		*)
-			echo "$flavor: не удалось скачать суммы из $tag (код $code), запустите ещё раз позже" >&2
+			echo "$flavor: failed to download checksums from $tag (code $code), run again later" >&2
 			failed=1
 			continue
 			;;
 	esac
 	while read -r sum file; do
 		if grep -qxF "${file%-*.pkg.tar.*}" <<<"$indb"; then
-			echo "$file: уже в репозитории"
+			echo "$file: already in the repository"
 			continue
 		fi
 		if [[ -e $repo/$file ]] && echo "$sum  $repo/$file" | sha256sum -c --quiet - 2>/dev/null; then
-			echo "$file: уже скачан, добавляю в базу"
+			echo "$file: already downloaded, adding to the database"
 		else
 			echo "$file"
 			curl -fL --progress-bar "$github/releases/download/$tag/$file" -o "$tmp/$file"
@@ -83,13 +84,13 @@ if (( ${#added[@]} )); then
 	[[ -n $key ]] && sign=(--sign --key "$key")
 	repo-add "${sign[@]}" -R "$db" "${added[@]}"
 else
-	echo "новых пакетов нет"
+	echo "no new packages"
 fi
 
 if [[ -n ${LEKSOS_RSYNC:-} ]]; then
 	rsync -rltv --delay-updates --delete-after "$repo/" "$LEKSOS_RSYNC"
 else
-	echo "LEKSOS_RSYNC не задан"
+	echo "LEKSOS_RSYNC is not set"
 fi
 
 exit "$failed"
