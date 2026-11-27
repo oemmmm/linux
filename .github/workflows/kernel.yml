@@ -1,19 +1,19 @@
-name: ядра leksos
+name: leksos kernels
 
 on:
   schedule:
-    # каждый день в 04:23/*
+    # every day at 01:23 UTC (04:23 Moscow time)
     - cron: '23 1 * * *'
   workflow_dispatch:
     inputs:
       mode:
-        description: 'что сделать'
+        description: 'what to do'
         type: choice
         options:
-          - проверить
-          - собрать
-          - пересобрать
-        default: проверить
+          - check
+          - build
+          - rebuild
+        default: check
 
 permissions:
   contents: write
@@ -24,7 +24,7 @@ concurrency:
 
 jobs:
   update:
-    name: новые версии
+    name: new versions
     runs-on: ubuntu-latest
     outputs:
       build: ${{ steps.update.outputs.build }}
@@ -36,7 +36,7 @@ jobs:
       - id: update
         env:
           GH_TOKEN: ${{ github.token }}
-        run: ci/update "${{ inputs.mode || 'проверить' }}"
+        run: ci/update "${{ inputs.mode || 'check' }}"
 
   build:
     name: ${{ matrix.flavor }}
@@ -49,7 +49,7 @@ jobs:
       matrix:
         flavor: ${{ fromJSON(needs.update.outputs.flavors) }}
     steps:
-      - name: оСВОбодить место на диске
+      - name: Free up disk space
         run: |
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc \
             /usr/local/.ghcup /opt/hostedtoolcache /usr/local/share/boost \
@@ -64,7 +64,7 @@ jobs:
           ref: main
           path: pkg
 
-      - name: исходники ядра
+      - name: Kernel sources
         run: |
           tag=$(pkg/ci/tag "${{ matrix.flavor }}")
           echo "TAG=$tag" >> "$GITHUB_ENV"
@@ -73,7 +73,7 @@ jobs:
           git -C kernel checkout -q FETCH_HEAD
           git -C kernel log --oneline -1
 
-      - name: сборка и проверка загрузки
+      - name: Build and boot test
         run: |
           kvm=()
           if [ -e /dev/kvm ]; then
@@ -85,7 +85,7 @@ jobs:
             archlinux:base-devel \
             /w/pkg/ci/build "${{ matrix.flavor }}" /w/kernel /w/out
 
-      - name: выложить
+      - name: Publish release
         env:
           GH_TOKEN: ${{ github.token }}
           GH_REPO: ${{ github.repository }}
